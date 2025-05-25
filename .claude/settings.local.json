@@ -8,7 +8,10 @@
       "Bash(grep:*)",
       "Bash(npm install:*)",
       "Bash(sed:*)",
-      "mcp__Context7__get-library-docs"
+      "mcp__Context7__get-library-docs",
+      "Bash(rg:*)",
+      "Bash(npm run build:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

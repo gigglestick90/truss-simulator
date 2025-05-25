@@ -66,9 +66,15 @@ function calculateNodeDeflection(node, allNodes, members, memberForces, E, allMe
     
     const L = getMemberLengthInches(startNode, endNode)
     const A = member.area // sq in
+    const I = member.momentOfInertia || 5.36 // Default to 2x4 if not specified
     
     // Calculate axial deformation: δ = FL/EA
     const axialDeformation = (force * L) / (E * A)
+    
+    // For members in compression, consider buckling effects based on I
+    // This provides more accurate deflection for different lumber sizes
+    const slendernessRatio = L / Math.sqrt(I / A)
+    const bucklingFactor = force < 0 ? 1 + (slendernessRatio / 1000) : 1
     
     // Get direction from this node to other node
     const otherNode = node.id === member.start ? endNode : startNode
@@ -80,8 +86,8 @@ function calculateNodeDeflection(node, allNodes, members, memberForces, E, allMe
     if (length > 0) {
       // Scale factor to get reasonable deflections
       const scaleFactor = 0.5
-      dx += axialDeformation * (dirX / length) * scaleFactor
-      dy += axialDeformation * (dirY / length) * scaleFactor
+      dx += axialDeformation * bucklingFactor * (dirX / length) * scaleFactor
+      dy += axialDeformation * bucklingFactor * (dirY / length) * scaleFactor
     }
   })
   

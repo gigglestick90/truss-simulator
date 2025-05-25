@@ -8,7 +8,7 @@ const FILE_VERSION = '1.0.0'
 /**
  * Export current truss design to JSON
  */
-export function exportTrussDesign(nodes, members, loads, material) {
+export function exportTrussDesign(nodes, members, loads, material, lumberSize) {
   const design = {
     version: FILE_VERSION,
     metadata: {
@@ -29,7 +29,8 @@ export function exportTrussDesign(nodes, members, loads, material) {
         id: member.id,
         start: member.start,
         end: member.end,
-        area: member.area
+        area: member.area,
+        momentOfInertia: member.momentOfInertia
       }))
     },
     parameters: {
@@ -40,7 +41,15 @@ export function exportTrussDesign(nodes, members, loads, material) {
         Fb: material.Fb,
         Fc: material.Fc,
         density: material.density
-      }
+      },
+      lumberSize: lumberSize ? {
+        name: lumberSize.name,
+        actualWidth: lumberSize.actualWidth,
+        actualHeight: lumberSize.actualHeight,
+        area: lumberSize.area,
+        momentOfInertia: lumberSize.momentOfInertia,
+        weight: lumberSize.weight
+      } : null
     }
   }
 
@@ -69,6 +78,7 @@ export function importTrussDesign(jsonData) {
       members: design.structure.members,
       loads: design.parameters?.loads || { dead: 15, live: 40, snow: 0 },
       material: design.parameters?.material || null,
+      lumberSize: design.parameters?.lumberSize || null,
       metadata: design.metadata || {}
     }
   } catch (error) {
@@ -79,8 +89,8 @@ export function importTrussDesign(jsonData) {
 /**
  * Download design as JSON file
  */
-export function downloadDesign(nodes, members, loads, material, filename = 'truss-design.json') {
-  const design = exportTrussDesign(nodes, members, loads, material)
+export function downloadDesign(nodes, members, loads, material, lumberSize, filename = 'truss-design.json') {
+  const design = exportTrussDesign(nodes, members, loads, material, lumberSize)
   const jsonString = JSON.stringify(design, null, 2)
   const blob = new Blob([jsonString], { type: 'application/json' })
   const url = URL.createObjectURL(blob)

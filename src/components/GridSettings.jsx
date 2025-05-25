@@ -46,9 +46,11 @@ const GridSettings = ({
               onChange={(e) => setGridSize(Number(e.target.value))}
               className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-sm text-gray-200 focus:border-cyan-400 focus:outline-none transition-colors"
             >
+              <option value={12.5}>0.25 ft (Fine)</option>
               <option value={25}>0.5 ft</option>
-              <option value={50}>1 ft</option>
+              <option value={50}>1 ft (Default)</option>
               <option value={100}>2 ft</option>
+              <option value={150}>3 ft (Coarse)</option>
             </select>
           </div>
         )}

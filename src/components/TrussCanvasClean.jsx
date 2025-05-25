@@ -26,6 +26,10 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
   const builderTool = gridSettings.builderTool ?? 'member'
   const [isDragging, setIsDragging] = useState(false)
   const [draggedNodeId, setDraggedNodeId] = useState(null)
+  const [stageScale, setStageScale] = useState(1)
+  const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 })
+  const [showZoomIndicator, setShowZoomIndicator] = useState(false)
+  const zoomTimeoutRef = useRef(null)
   const memberRefs = useRef({})
   const animationRef = useRef(null)
   const pulseAnimationRef = useRef(null)
@@ -51,18 +55,17 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
-        const minWidth = 30 * 50 + AXIS_PADDING.left + AXIS_PADDING.right
-        const minHeight = 20 * 50 + AXIS_PADDING.top + AXIS_PADDING.bottom
+        // Set canvas to viewport size for dynamic zooming
         setDimensions({
-          width: Math.max(containerRef.current.offsetWidth, minWidth),
-          height: Math.max(containerRef.current.offsetHeight, minHeight)
+          width: containerRef.current.offsetWidth,
+          height: containerRef.current.offsetHeight
         })
       }
     }
     updateDimensions()
     window.addEventListener('resize', updateDimensions)
     return () => window.removeEventListener('resize', updateDimensions)
-  }, [])
+  }, [AXIS_PADDING.left, AXIS_PADDING.right, AXIS_PADDING.top, AXIS_PADDING.bottom])
   
   useEffect(() => {
     if (analysisResults.status === 'PASSED' || analysisResults.status === 'FAILED') {
@@ -143,7 +146,22 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
   
   const generateGridElements = () => {
     const elements = []
-    const gridLines = gridManager.current.generateGridLines(dimensions.width, dimensions.height)
+    
+    // Calculate visible area based on zoom
+    const stage = stageRef.current
+    const scale = stage ? stage.scaleX() : 1
+    const pos = stage ? stage.position() : { x: 0, y: 0 }
+    
+    // Calculate the visible bounds in world coordinates
+    const visibleX = -pos.x / scale
+    const visibleY = -pos.y / scale
+    
+    const gridLines = gridManager.current.generateGridLines(
+      dimensions.width, 
+      dimensions.height,
+      visibleX,
+      visibleY
+    )
     
     gridLines.forEach((line, index) => {
       elements.push(
@@ -157,7 +175,12 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
       )
     })
     
-    const labels = gridManager.current.getAxisLabels(dimensions.width, dimensions.height)
+    const labels = gridManager.current.getAxisLabels(
+      dimensions.width, 
+      dimensions.height,
+      visibleX,
+      visibleY
+    )
     labels.forEach((label, index) => {
       elements.push(
         <Text
@@ -230,7 +253,13 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
     if (e.evt.button === 2) return
     
     const stage = e.target.getStage()
-    const point = stage.getPointerPosition()
+    const pointer = stage.getPointerPosition()
+    
+    // Transform pointer position to account for stage scale and position
+    const transform = stage.getAbsoluteTransform().copy()
+    transform.invert()
+    const point = transform.point(pointer)
+    
     const snapped = snapToGrid(point.x, point.y)
     
     const clickedNode = nodes.find(n => 
@@ -261,12 +290,58 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
     }
   }
   
+  const handleWheel = (e) => {
+    e.evt.preventDefault()
+    
+    const scaleBy = 1.1
+    const stage = stageRef.current
+    if (!stage) return
+    
+    const oldScale = stage.scaleX()
+    const pointer = stage.getPointerPosition()
+    
+    const mousePointTo = {
+      x: (pointer.x - stage.x()) / oldScale,
+      y: (pointer.y - stage.y()) / oldScale,
+    }
+    
+    const direction = e.evt.deltaY > 0 ? -1 : 1
+    const newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy
+    
+    // Limit zoom range
+    const limitedScale = Math.max(0.2, Math.min(5, newScale))
+    
+    stage.scale({ x: limitedScale, y: limitedScale })
+    
+    const newPos = {
+      x: pointer.x - mousePointTo.x * limitedScale,
+      y: pointer.y - mousePointTo.y * limitedScale,
+    }
+    
+    stage.position(newPos)
+    setStageScale(limitedScale)
+    setStagePosition(newPos)
+    
+    // Show zoom indicator
+    setShowZoomIndicator(true)
+    clearTimeout(zoomTimeoutRef.current)
+    zoomTimeoutRef.current = setTimeout(() => {
+      setShowZoomIndicator(false)
+    }, 1500)
+  }
+  
   const handleMouseMove = (e) => {
     if (!isBuilderMode) return
     const stage = e.target.getStage()
-    const point = stage.getPointerPosition()
-    setMousePos(point)
-    const snapped = snapToGrid(point.x, point.y)
+    const pointer = stage.getPointerPosition()
+    
+    // Transform pointer position to account for stage scale and position
+    const transform = stage.getAbsoluteTransform().copy()
+    transform.invert()
+    const pos = transform.point(pointer)
+    
+    setMousePos(pos)
+    const snapped = snapToGrid(pos.x, pos.y)
     if (!isDrawingMember) {
       setGhostNode(snapped)
     }
@@ -352,7 +427,8 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
   
   const renderGrid = () => {
     if (!showGrid) return null
-    return <Group>{generateGridElements()}</Group>
+    // Force re-render when stage scale or position changes
+    return <Group key={`grid-${stageScale}-${stagePosition.x}-${stagePosition.y}`}>{generateGridElements()}</Group>
   }
   
   const renderSnapIndicator = () => {
@@ -616,7 +692,7 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
             onClick={(e) => handleNodeClick(node, e)}
             onTap={(e) => handleNodeClick(node, e)}
             draggable={isBuilderMode && !isDrawingMember}
-            onDragStart={(e) => {
+            onDragStart={() => {
               if (isBuilderMode && !isDrawingMember) {
                 setIsDragging(true)
                 setDraggedNodeId(node.id)
@@ -739,6 +815,11 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
           onMouseMove={handleMouseMove}
           onMouseLeave={() => setGhostNode(null)}
           onContextMenu={(e) => e.evt.preventDefault()}
+          onWheel={handleWheel}
+          scaleX={stageScale}
+          scaleY={stageScale}
+          x={stagePosition.x}
+          y={stagePosition.y}
         >
           <Layer>
             {renderBackground()}
@@ -800,6 +881,36 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
           </div>
         </div>
       )}
+      
+      {/* Zoom Indicator */}
+      {showZoomIndicator && (
+        <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm rounded-lg px-4 py-2 text-white font-semibold shadow-lg border border-white/20 transition-opacity duration-300">
+          <span className="text-sm">Zoom: {Math.round(stageScale * 100)}%</span>
+        </div>
+      )}
+      
+      {/* Zoom Controls */}
+      <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm rounded-lg p-3 space-y-2 text-xs text-gray-300 shadow-lg border border-white/10">
+        <p>🖱️ Scroll: Zoom In/Out</p>
+        <button
+          onClick={() => {
+            const stage = stageRef.current
+            if (!stage) return
+            stage.scale({ x: 1, y: 1 })
+            stage.position({ x: 0, y: 0 })
+            setStageScale(1)
+            setStagePosition({ x: 0, y: 0 })
+            setShowZoomIndicator(true)
+            clearTimeout(zoomTimeoutRef.current)
+            zoomTimeoutRef.current = setTimeout(() => {
+              setShowZoomIndicator(false)
+            }, 1500)
+          }}
+          className="w-full px-2 py-1 bg-white/10 hover:bg-white/20 text-white rounded transition-colors text-xs font-semibold"
+        >
+          Reset Zoom
+        </button>
+      </div>
     </div>
   )
 }

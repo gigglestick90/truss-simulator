@@ -43,7 +43,8 @@ export const useKeyboardShortcuts = (shortcuts, deps = []) => {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [...deps, shortcuts])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shortcuts, ...deps])
 }
 
 // Common keyboard shortcuts

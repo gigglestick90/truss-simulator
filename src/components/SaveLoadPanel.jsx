@@ -12,11 +12,13 @@ const SaveLoadPanel = () => {
   const members = useTrussStore((state) => state.members)
   const loads = useTrussStore((state) => state.loads)
   const material = useTrussStore((state) => state.material)
+  const lumberSize = useTrussStore((state) => state.lumberSize)
   const clearAll = useTrussStore((state) => state.clearAll)
   const addNode = useTrussStore((state) => state.addNode)
   const addMember = useTrussStore((state) => state.addMember)
   const updateLoads = useTrussStore((state) => state.updateLoads)
   const updateMaterial = useTrussStore((state) => state.updateMaterial)
+  const updateLumberSize = useTrussStore((state) => state.updateLumberSize)
   const runAnalysis = useTrussStore((state) => state.runAnalysis)
 
   const handleSave = () => {
@@ -29,7 +31,7 @@ const SaveLoadPanel = () => {
     const filename = `truss-design-${timestamp}.json`
     
     try {
-      downloadDesign(nodes, members, loads, material, filename)
+      downloadDesign(nodes, members, loads, material, lumberSize, filename)
       setMessage({ text: 'Design saved successfully!', type: 'success' })
     } catch {
       setMessage({ text: 'Failed to save design', type: 'error' })
@@ -63,6 +65,10 @@ const SaveLoadPanel = () => {
       
       if (design.material) {
         updateMaterial(design.material)
+      }
+      
+      if (design.lumberSize) {
+        updateLumberSize(design.lumberSize)
       }
       
       setMessage({ text: 'Design loaded successfully!', type: 'success' })

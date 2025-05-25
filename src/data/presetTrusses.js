@@ -25,7 +25,8 @@ const createPreset = (name, description, nodes, members) => {
     id: generateUUID(),
     start: nodeMap.get(member.startIndex),
     end: nodeMap.get(member.endIndex),
-    area: 5.5, // Default 2x4 lumber
+    area: 5.25, // 2x4 actual area
+    momentOfInertia: 5.36, // 2x4 moment of inertia
     force: 0
   }))
 

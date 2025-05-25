@@ -73,6 +73,7 @@ function App() {
                   gridSettings={{
                     showGrid,
                     gridSize,
+                    setGridSize,
                     isBuilderMode,
                     builderTool
                   }}

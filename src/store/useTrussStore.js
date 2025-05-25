@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { analyzeTruss, calculateStress } from '../analysis/trussAnalysis'
 import { calculateDeflections, checkDeflectionLimits } from '../analysis/deflection'
 import { generateUUID } from '../utils/uuid'
+import { defaultLumberSize } from '../data/lumberSizes'
 
 const useTrussStore = create((set, get) => ({
   // Truss geometry - start with empty structure
@@ -24,6 +25,9 @@ const useTrussStore = create((set, get) => ({
     density: 26    // pcf
   },
   
+  // Lumber size
+  lumberSize: defaultLumberSize,
+  
   // Analysis results
   analysisResults: {
     memberForces: [],
@@ -38,6 +42,16 @@ const useTrussStore = create((set, get) => ({
   updateLoads: (loads) => set({ loads }),
   
   updateMaterial: (material) => set({ material }),
+  
+  updateLumberSize: (lumberSize) => set((state) => ({
+    lumberSize,
+    // Update all existing members with new lumber properties
+    members: state.members.map(member => ({
+      ...member,
+      area: lumberSize.area,
+      momentOfInertia: lumberSize.momentOfInertia
+    }))
+  })),
   
   addNode: (node) => set((state) => {
     // Check if a node already exists at this position
@@ -102,7 +116,8 @@ const useTrussStore = create((set, get) => ({
       ...member, 
       id: member.id || generateUUID(), 
       force: 0,
-      area: member.area || 5.5 
+      area: state.lumberSize.area,
+      momentOfInertia: state.lumberSize.momentOfInertia
     }
     return {
       members: [...state.members, newMember]
