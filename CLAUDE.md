@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # Truss Analysis Simulator
 
-A visual 2D physics simulator for residential wood floor and roof trusses, designed for Pittsburgh, PA building standards. Features an interactive builder, real-time structural analysis, and beautiful glassmorphism UI design.
+A visual 2D physics simulator for residential wood floor and roof trusses, designed for Pittsburgh, PA building standards. Features an interactive builder, real-time structural analysis, infinite canvas with zoom/pan, and beautiful glassmorphism UI design.
 
 ## Common Commands
 
@@ -49,13 +49,15 @@ The app features a full interactive truss builder with:
 - **Tool System**: Three tools - Member (connect nodes), Fixed (△ support), Roller (○ support)
 - **Node Management**: Click to place, drag to move, right-click to delete
 - **Member Drawing**: Click-drag between nodes with visual feedback
-- **Grid System**: Configurable snap-to-grid with 0.5ft, 1ft, 2ft spacing
+- **Grid System**: Configurable snap-to-grid with 0.25ft, 0.5ft, 1ft, 2ft, 3ft spacing
 - **Node Dragging**: Reposition nodes with automatic member updates
+- **Infinite Canvas**: Zoom out to access unlimited working area
+- **Mouse Wheel Zoom**: Scroll to zoom in/out, centered on cursor position
 
 ### Save/Load System
 - **SaveLoadPanel**: Export/import complete designs as JSON files
 - **File Format**: Version 1.0.0 with metadata (timestamp, name, description)
-- **Data Persistence**: Stores nodes, members, materials, loads, and UI state
+- **Data Persistence**: Stores nodes, members, materials, loads, lumber sizes, and UI state
 
 ### Preset Templates
 - **PresetSelector**: Quick-start with 6 common truss configurations
@@ -66,15 +68,19 @@ The app features a full interactive truss builder with:
 
 **Canvas Rendering**: React-Konva provides a declarative API for 2D graphics. The TrussCanvasClean component:
 - Renders members with stress-based coloring (tension=red, compression=blue)
-- Shows deflected shape with exaggeration factor (10x-200x)
+- Shows deflected shape with exaggeration factor (10x-500x)
 - Overlays ghost outline of original shape when deflection is active (bright green #00ff88)
-- Supports scrollable canvas with infinite workspace
+- Supports infinite canvas with dynamic grid expansion
+- Mouse wheel zoom (20% to 500%) centered on cursor
+- Dynamic grid rendering based on visible area
 - Grid settings now in dedicated right sidebar component
 - **CRITICAL**: No comments, whitespace, or React Fragments inside Stage/Layer components
 
 **Analysis Engine**: Pure functions for testability
 - `analyzeTruss()`: Distributes loads and solves for member forces
 - `calculateDeflections()`: Computes node displacements using simplified virtual work
+- Deflection calculations now use actual moment of inertia for each member
+- Buckling effects considered for compression members based on slenderness ratio
 - Results cached in store to avoid recalculation on visual-only changes
 - Dynamic load distribution to topmost nodes (within 50px of highest point)
 
