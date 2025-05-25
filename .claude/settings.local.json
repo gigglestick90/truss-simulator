@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(npm run dev:*)",
+      "Bash(npm run lint)",
+      "Bash(npm install)",
+      "Bash(grep:*)",
+      "Bash(npm install:*)",
+      "Bash(sed:*)",
+      "mcp__Context7__get-library-docs"
+    ],
+    "deny": []
+  }
+}
