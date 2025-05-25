@@ -5,13 +5,13 @@ import ResultsPanel from './components/ResultsPanel'
 import MaterialSelector from './components/MaterialSelector'
 import PresetSelector from './components/PresetSelector'
 import SaveLoadPanel from './components/SaveLoadPanel'
-import GridSettings from './components/GridSettings'
+import GridSettings, { GRID_SIZES } from './components/GridSettings'
 import useTrussStore from './store/useTrussStore'
 
 function App() {
   // Grid settings state
   const [showGrid, setShowGrid] = useState(true)
-  const [gridSize, setGridSize] = useState(50)
+  const [gridSize, setGridSize] = useState('medium')  // Default to medium grid
   const [isBuilderMode, setIsBuilderMode] = useState(false)
   const [builderTool, setBuilderTool] = useState('member')
   
@@ -73,7 +73,7 @@ function App() {
                   gridSettings={{
                     showGrid,
                     gridSize,
-                    setGridSize,
+                    gridDimensions: GRID_SIZES[gridSize] || GRID_SIZES.medium,
                     isBuilderMode,
                     builderTool
                   }}

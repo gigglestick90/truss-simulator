@@ -49,10 +49,19 @@ The app features a full interactive truss builder with:
 - **Tool System**: Three tools - Member (connect nodes), Fixed (△ support), Roller (○ support)
 - **Node Management**: Click to place, drag to move, right-click to delete
 - **Member Drawing**: Click-drag between nodes with visual feedback
-- **Grid System**: Configurable snap-to-grid with 0.25ft, 0.5ft, 1ft, 2ft, 3ft spacing
+- **Infinite Grid System**: Google Maps-style pan and zoom with unlimited working area
+- **Dynamic Grid Spacing**: Automatically adjusts based on zoom level:
+  - Zoom < 30%: 10ft grid
+  - Zoom 30-50%: 5ft grid  
+  - Zoom 50-80%: 2ft grid
+  - Zoom 80-150%: 1ft grid (default)
+  - Zoom 150-300%: 0.5ft grid
+  - Zoom > 300%: 0.25ft grid
+- **Mouse Controls**:
+  - Scroll wheel: Zoom in/out centered on cursor
+  - Click and drag: Pan around the infinite canvas (in view mode)
+  - Right-click: Context menu/delete
 - **Node Dragging**: Reposition nodes with automatic member updates
-- **Infinite Canvas**: Zoom out to access unlimited working area
-- **Mouse Wheel Zoom**: Scroll to zoom in/out, centered on cursor position
 
 ### Save/Load System
 - **SaveLoadPanel**: Export/import complete designs as JSON files
@@ -70,10 +79,12 @@ The app features a full interactive truss builder with:
 - Renders members with stress-based coloring (tension=red, compression=blue)
 - Shows deflected shape with exaggeration factor (10x-500x)
 - Overlays ghost outline of original shape when deflection is active (bright green #00ff88)
-- Supports infinite canvas with dynamic grid expansion
+- Infinite canvas with Google Maps-style navigation
 - Mouse wheel zoom (20% to 500%) centered on cursor
-- Dynamic grid rendering based on visible area
-- Grid settings now in dedicated right sidebar component
+- Click-and-drag panning in view mode
+- Dynamic grid rendering - only visible area is rendered for performance
+- Grid spacing automatically adjusts with zoom level
+- Grid settings in right sidebar (toggle visibility only)
 - **CRITICAL**: No comments, whitespace, or React Fragments inside Stage/Layer components
 
 **Analysis Engine**: Pure functions for testability
@@ -95,10 +106,12 @@ The app features a full interactive truss builder with:
 
 ### Coordinate System & Scale
 - Scale: 50 pixels = 1 foot (real-world units)
-- Origin: Top-left corner (0,0) 
-- Canvas has axis padding: left=50px, bottom=40px, top=20px, right=20px
-- Grid snapping rounds to nearest grid unit
-- Y-axis inverted for display (0ft at bottom in labels)
+- Origin: Bottom-left corner (0,0) in world space
+- Y-axis increases upward (standard engineering convention)
+- Infinite coordinate system - no bounds
+- Grid snapping rounds to nearest grid unit (dynamically sized)
+- Coordinates displayed in feet with appropriate precision
+- Axis labels stay fixed on screen while showing world coordinates
 
 ### Node & Member ID System
 - Nodes assigned unique IDs using UUID v4 (`generateUUID()`)
@@ -123,7 +136,15 @@ const failedMembers = [] // Track which members fail
 - **Node Hover**: Shows coordinates and tooltips
 - **Member Selection**: Right-click to delete
 - **Support Indicators**: Bright green with glow effect
-- **Grid Overlay**: Major lines every 5 units, axis labels in feet
+- **Infinite Grid System**:
+  - Major lines every 5 units with subtle appearance
+  - Minor lines dashed for visual hierarchy
+  - Axis lines at origin (gray) when visible
+  - Dynamic axis labels that update as you pan
+- **Coordinate Display**: 
+  - Shows exact cursor position in feet
+  - Shows snap-to-grid position when grid is enabled
+  - Located in bottom-left corner
 - **Draggable Nodes**: Smooth repositioning with snap-to-grid
 - **Snap Indicator**: Crosshairs appear when nodes align with grid
 - **Drawing Feedback**: Shows member length while drawing
@@ -150,10 +171,11 @@ const failedMembers = [] // Track which members fail
 - **Critical**: Clean implementation without comments inside Konva components
 
 **GridSettings.jsx**:
-- Controls grid visibility and spacing
+- Controls grid visibility toggle
 - Builder mode toggle and tool selection
 - Clear all function
 - Located in right sidebar for better UX
+- Grid spacing is now automatic based on zoom level
 
 **LoadPanel.jsx**: 
 - Three sliders for dead/live/snow loads (PSF)

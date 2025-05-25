@@ -1,9 +1,16 @@
 import React from 'react'
 
+export const GRID_SIZES = {
+  small: { label: 'Small', width: 30, height: 20, description: '30×20 ft' },
+  medium: { label: 'Medium', width: 50, height: 30, description: '50×30 ft' },
+  large: { label: 'Large', width: 80, height: 40, description: '80×40 ft' },
+  xlarge: { label: 'Extra Large', width: 100, height: 50, description: '100×50 ft' }
+}
+
 const GridSettings = ({ 
   showGrid, 
-  setShowGrid, 
-  gridSize, 
+  setShowGrid,
+  gridSize,
   setGridSize,
   isBuilderMode,
   setIsBuilderMode,
@@ -38,20 +45,23 @@ const GridSettings = ({
         {showGrid && (
           <div className="space-y-3 p-3 bg-white/5 rounded-lg border border-white/5">
             <div className="flex justify-between items-center">
-              <label className="text-sm font-semibold text-gray-200">Grid Size</label>
-              <span className="text-sm font-bold text-cyan-400">{gridSize/50}ft</span>
+              <label className="text-sm font-semibold text-gray-200">Canvas Size</label>
+              <span className="text-sm font-bold text-cyan-400">{GRID_SIZES[gridSize]?.description || ''}</span>
             </div>
             <select
               value={gridSize}
-              onChange={(e) => setGridSize(Number(e.target.value))}
+              onChange={(e) => setGridSize(e.target.value)}
               className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-sm text-gray-200 focus:border-cyan-400 focus:outline-none transition-colors"
             >
-              <option value={12.5}>0.25 ft (Fine)</option>
-              <option value={25}>0.5 ft</option>
-              <option value={50}>1 ft (Default)</option>
-              <option value={100}>2 ft</option>
-              <option value={150}>3 ft (Coarse)</option>
+              {Object.entries(GRID_SIZES).map(([key, size]) => (
+                <option key={key} value={key}>
+                  {size.label} ({size.description})
+                </option>
+              ))}
             </select>
+            <div className="text-xs text-gray-400">
+              Working area: {GRID_SIZES[gridSize]?.width || 0} × {GRID_SIZES[gridSize]?.height || 0} feet
+            </div>
           </div>
         )}
       </div>

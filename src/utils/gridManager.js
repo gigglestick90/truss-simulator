@@ -18,12 +18,12 @@ class GridManager {
   }
 
   /**
-   * Convert screen coordinates to world coordinates (accounting for axis padding)
+   * Convert screen coordinates to world coordinates (no axis padding in infinite grid)
    */
   screenToWorld(screenX, screenY) {
     return {
-      x: screenX - this.axisPadding.left,
-      y: screenY - this.axisPadding.top
+      x: screenX,
+      y: screenY
     }
   }
 
@@ -32,8 +32,8 @@ class GridManager {
    */
   worldToScreen(worldX, worldY) {
     return {
-      x: worldX + this.axisPadding.left,
-      y: worldY + this.axisPadding.top
+      x: worldX,
+      y: worldY
     }
   }
 
@@ -41,12 +41,10 @@ class GridManager {
    * Snap coordinates to nearest grid point
    */
   snapToGrid(x, y) {
-    const world = this.screenToWorld(x, y)
-    const snappedWorld = {
-      x: Math.round(world.x / this.gridSize) * this.gridSize,
-      y: Math.round(world.y / this.gridSize) * this.gridSize
+    return {
+      x: Math.round(x / this.gridSize) * this.gridSize,
+      y: Math.round(y / this.gridSize) * this.gridSize
     }
-    return this.worldToScreen(snappedWorld.x, snappedWorld.y)
   }
 
   /**
@@ -71,12 +69,14 @@ class GridManager {
 
   /**
    * Get coordinates in feet (for display)
+   * @param {number} x - X coordinate in pixels
+   * @param {number} y - Y coordinate in pixels 
+   * @param {boolean} invertY - Whether to invert Y axis (positive up)
    */
-  screenToFeet(x, y) {
-    const world = this.screenToWorld(x, y)
+  screenToFeet(x, y, invertY = true) {
     return {
-      xFeet: world.x / this.pixelsPerFoot,
-      yFeet: world.y / this.pixelsPerFoot
+      xFeet: x / this.pixelsPerFoot,
+      yFeet: invertY ? -y / this.pixelsPerFoot : y / this.pixelsPerFoot
     }
   }
 
@@ -124,50 +124,45 @@ class GridManager {
 
   /**
    * Generate grid lines for rendering
-   * @param {number} canvasWidth - Width of the canvas area
-   * @param {number} canvasHeight - Height of the canvas area
-   * @param {number} offsetX - X offset in world coordinates (for zoomed view)
-   * @param {number} offsetY - Y offset in world coordinates (for zoomed view)
+   * @param {number} visibleWidth - Width of the visible area in world coordinates
+   * @param {number} visibleHeight - Height of the visible area in world coordinates
+   * @param {number} offsetX - X offset in world coordinates (for panned view)
+   * @param {number} offsetY - Y offset in world coordinates (for panned view)
    */
-  generateGridLines(canvasWidth, canvasHeight, offsetX = 0, offsetY = 0) {
+  generateGridLines(visibleWidth, visibleHeight, offsetX = 0, offsetY = 0) {
     const lines = []
     
+    // Add buffer to ensure smooth panning (grid extends beyond visible area)
+    const buffer = this.gridSize * 2
+    
     // Calculate the starting grid positions based on offset
-    const startX = Math.floor(offsetX / this.gridSize) * this.gridSize
-    const startY = Math.floor(offsetY / this.gridSize) * this.gridSize
-    const endX = offsetX + canvasWidth
-    const endY = offsetY + canvasHeight
+    const startX = Math.floor((offsetX - buffer) / this.gridSize) * this.gridSize
+    const startY = Math.floor((offsetY - buffer) / this.gridSize) * this.gridSize
+    const endX = offsetX + visibleWidth + buffer
+    const endY = offsetY + visibleHeight + buffer
 
-    // Vertical lines
+    // Vertical lines - use world coordinates
     for (let x = startX; x <= endX; x += this.gridSize) {
-      // Check if this grid position is within the visible area
-      if (x >= offsetX - this.gridSize && x <= endX + this.gridSize) {
-        const screenX = x - offsetX + this.axisPadding.left
-        lines.push({
-          type: 'vertical',
-          x1: screenX,
-          y1: this.axisPadding.top,
-          x2: screenX,
-          y2: canvasHeight - this.axisPadding.bottom,
-          isMajor: Math.abs(x) % (this.gridSize * 5) < 1
-        })
-      }
+      lines.push({
+        type: 'vertical',
+        x1: x,
+        y1: startY,
+        x2: x,
+        y2: endY,
+        isMajor: Math.abs(x) % (this.gridSize * 5) < 1
+      })
     }
 
-    // Horizontal lines
+    // Horizontal lines - use world coordinates
     for (let y = startY; y <= endY; y += this.gridSize) {
-      // Check if this grid position is within the visible area
-      if (y >= offsetY - this.gridSize && y <= endY + this.gridSize) {
-        const screenY = y - offsetY + this.axisPadding.top
-        lines.push({
-          type: 'horizontal',
-          x1: this.axisPadding.left,
-          y1: screenY,
-          x2: canvasWidth - this.axisPadding.right,
-          y2: screenY,
-          isMajor: Math.abs(y) % (this.gridSize * 5) < 1
-        })
-      }
+      lines.push({
+        type: 'horizontal',
+        x1: startX,
+        y1: y,
+        x2: endX,
+        y2: y,
+        isMajor: Math.abs(y) % (this.gridSize * 5) < 1
+      })
     }
 
     return lines
@@ -175,51 +170,48 @@ class GridManager {
 
   /**
    * Get axis labels for the grid
-   * @param {number} canvasWidth - Width of the canvas area
-   * @param {number} canvasHeight - Height of the canvas area
-   * @param {number} offsetX - X offset in world coordinates (for zoomed view)
-   * @param {number} offsetY - Y offset in world coordinates (for zoomed view)
+   * @param {number} visibleWidth - Width of the visible area in world coordinates
+   * @param {number} visibleHeight - Height of the visible area in world coordinates
+   * @param {number} offsetX - X offset in world coordinates (for panned view)
+   * @param {number} offsetY - Y offset in world coordinates (for panned view)
+   * @param {boolean} invertY - Whether to invert Y axis (positive up)
    */
-  getAxisLabels(canvasWidth, canvasHeight, offsetX = 0, offsetY = 0) {
+  getAxisLabels(visibleWidth, visibleHeight, offsetX = 0, offsetY = 0, invertY = false) {
     const labels = []
     
+    // Determine label spacing based on grid size
+    const labelSpacing = this.gridSize >= 100 ? this.gridSize : this.gridSize * 5
+    
     // Calculate the starting grid positions based on offset
-    const startX = Math.floor(offsetX / (this.gridSize * 5)) * (this.gridSize * 5)
-    const startY = Math.floor(offsetY / (this.gridSize * 5)) * (this.gridSize * 5)
-    const endX = offsetX + canvasWidth
-    const endY = offsetY + canvasHeight
+    const startX = Math.floor(offsetX / labelSpacing) * labelSpacing
+    const startY = Math.floor(offsetY / labelSpacing) * labelSpacing
+    const endX = offsetX + visibleWidth
+    const endY = offsetY + visibleHeight
 
     // X-axis labels
-    for (let x = startX; x <= endX; x += this.gridSize * 5) {
-      if (x >= offsetX - this.gridSize && x <= endX + this.gridSize) {
-        const screenX = x - offsetX + this.axisPadding.left
-        const feet = x / this.pixelsPerFoot
-        labels.push({
-          type: 'x',
-          x: screenX,
-          y: canvasHeight - this.axisPadding.bottom + 15,
-          text: `${Math.round(feet)}`,
-          align: 'center'
-        })
-      }
+    for (let x = startX; x <= endX; x += labelSpacing) {
+      const screenX = x - offsetX
+      const feet = x / this.pixelsPerFoot
+      labels.push({
+        type: 'x',
+        x: screenX,
+        y: visibleHeight - 20,
+        text: `${feet.toFixed(this.gridSize >= 50 ? 0 : 1)}`,
+        align: 'center'
+      })
     }
 
-    // Y-axis labels (inverted for display)
-    const worldHeight = canvasHeight - this.axisPadding.top - this.axisPadding.bottom
-    for (let y = startY; y <= endY; y += this.gridSize * 5) {
-      if (y >= offsetY - this.gridSize && y <= endY + this.gridSize) {
-        const screenY = y - offsetY + this.axisPadding.top
-        const feet = (worldHeight + offsetY - y) / this.pixelsPerFoot
-        if (feet >= 0) {
-          labels.push({
-            type: 'y',
-            x: 10,
-            y: screenY + 3,
-            text: `${Math.round(feet)}`,
-            align: 'left'
-          })
-        }
-      }
+    // Y-axis labels
+    for (let y = startY; y <= endY; y += labelSpacing) {
+      const screenY = y - offsetY
+      const feet = invertY ? -y / this.pixelsPerFoot : y / this.pixelsPerFoot
+      labels.push({
+        type: 'y',
+        x: 10,
+        y: screenY + 3,
+        text: `${feet.toFixed(this.gridSize >= 50 ? 0 : 1)}`,
+        align: 'left'
+      })
     }
 
     return labels
