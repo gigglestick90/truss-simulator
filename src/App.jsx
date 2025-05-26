@@ -5,7 +5,8 @@ import ResultsPanel from './components/ResultsPanel'
 import MaterialSelector from './components/MaterialSelector'
 import PresetSelector from './components/PresetSelector'
 import SaveLoadPanel from './components/SaveLoadPanel'
-import GridSettings, { GRID_SIZES } from './components/GridSettings'
+import GridSettings from './components/GridSettings'
+import { GRID_SIZES } from './data/gridSizes'
 import useTrussStore from './store/useTrussStore'
 
 function App() {

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState, useMemo } from 'react'
 import { Stage, Layer, Line, Circle, Text, Group, Rect } from 'react-konva'
 import Konva from 'konva'
 import useTrussStore from '../store/useTrussStore'
@@ -36,7 +36,10 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
   const zoomTimeoutRef = useRef(null)
   
   // Grid dimensions from props
-  const gridDimensions = gridSettings.gridDimensions || { width: 50, height: 30 }
+  const gridDimensions = useMemo(() => 
+    gridSettings.gridDimensions || { width: 50, height: 30 },
+    [gridSettings.gridDimensions]
+  )
   const GRID_SPACING = 1 // 1 foot grid spacing
   const PIXELS_PER_FOOT = 50
   
