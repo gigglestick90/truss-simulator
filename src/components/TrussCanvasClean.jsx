@@ -9,7 +9,7 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
   const containerRef = useRef(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const [showForceLabels] = useState(true)
-  const [showDeflection, setShowDeflection] = useState(true)
+  const [showDeflection, setShowDeflection] = useState(false)
   const [deflectionScale, setDeflectionScale] = useState(100)
   const showGrid = gridSettings.showGrid ?? true
   const [hoveredNode, setHoveredNode] = useState(null)
@@ -190,13 +190,15 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
       return worldToScreen(node.x, node.y)
     }
     
-    const nodeResult = analysisResults.nodeDeflections?.find(n => n.id === node.id)
+    const nodeResult = analysisResults.nodeDeflections?.find(n => n.nodeId === node.id)
     if (!nodeResult) {
       return worldToScreen(node.x, node.y)
     }
     
-    const deflectedX = node.x + (nodeResult.dx * deflectionScale)
-    const deflectedY = node.y + (nodeResult.dy * deflectionScale)
+    // Convert deflection from inches to pixels (50 pixels = 12 inches)
+    const inchesToPixels = PIXELS_PER_FOOT / 12
+    const deflectedX = node.x + (nodeResult.dx * inchesToPixels * deflectionScale / 100)
+    const deflectedY = node.y + (nodeResult.dy * inchesToPixels * deflectionScale / 100)
     
     return worldToScreen(deflectedX, deflectedY)
   }
@@ -433,6 +435,8 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
   const renderGhostMembers = () => {
     if (!showDeflection || analysisResults.status === 'NOT_ANALYZED') return null
     
+    // Always show ghost members when deflection is on, even if deflection is minimal
+    // This shows the original undeflected structure
     return (
       <Group opacity={0.5}>
         {members.map(member => {
@@ -441,6 +445,7 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
           
           if (!startNode || !endNode) return null
           
+          // Always use original positions for ghost members
           const startScreen = worldToScreen(startNode.x, startNode.y)
           const endScreen = worldToScreen(endNode.x, endNode.y)
           
@@ -449,12 +454,12 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
               key={`ghost-${member.id}`}
               points={[startScreen.x, startScreen.y, endScreen.x, endScreen.y]}
               stroke="#00ff88"
-              strokeWidth={2}
+              strokeWidth={3}
               opacity={0.7}
-              dash={[8, 4]}
-              shadowBlur={8}
+              dash={[10, 5]}
+              shadowBlur={12}
               shadowColor="#00ff88"
-              shadowOpacity={0.5}
+              shadowOpacity={0.8}
             />
           )
         })}
@@ -468,8 +473,9 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
               radius={4}
               fill="#00ff88"
               opacity={0.7}
-              shadowBlur={6}
+              shadowBlur={10}
               shadowColor="#00ff88"
+              shadowOpacity={1}
             />
           )
         })}
@@ -642,15 +648,66 @@ const TrussCanvasClean = ({ gridSettings = {} }) => {
           />
           
           {isHovered && !isBuilderMode && (
-            <Text
-              x={deflectedPos.x + 15}
-              y={deflectedPos.y - 10}
-              text={`(${(node.x / PIXELS_PER_FOOT).toFixed(1)}, ${(node.y / PIXELS_PER_FOOT).toFixed(1)})`}
-              fontSize={10}
-              fontFamily="Atkinson Hyperlegible"
-              fill="#9ca3af"
-              listening={false}
-            />
+            <Group>
+              <Rect
+                x={deflectedPos.x + 10}
+                y={deflectedPos.y - 50}
+                width={160}
+                height={node.support ? 65 : 50}
+                fill="black"
+                opacity={0.8}
+                cornerRadius={5}
+              />
+              <Text
+                x={deflectedPos.x + 15}
+                y={deflectedPos.y - 45}
+                text={`Node ${node.label}`}
+                fontSize={12}
+                fontFamily="Atkinson Hyperlegible"
+                fill="#ffffff"
+                fontStyle="bold"
+              />
+              <Text
+                x={deflectedPos.x + 15}
+                y={deflectedPos.y - 30}
+                text={`Position: (${(node.x / PIXELS_PER_FOOT).toFixed(1)}, ${(node.y / PIXELS_PER_FOOT).toFixed(1)}) ft`}
+                fontSize={10}
+                fontFamily="Atkinson Hyperlegible"
+                fill="#9ca3af"
+              />
+              {analysisResults.status !== 'NOT_ANALYZED' && (
+                <>
+                  {(() => {
+                    const nodeForce = analysisResults.nodeForces?.find(n => n.nodeId === node.id)
+                    const nodeDeflection = analysisResults.nodeDeflections?.find(n => n.nodeId === node.id)
+                    return (
+                      <>
+                        {nodeForce && Math.abs(nodeForce.fy) > 0.1 && (
+                          <Text
+                            x={deflectedPos.x + 15}
+                            y={deflectedPos.y - 15}
+                            text={`Force: ${nodeForce.fy.toFixed(0)} lbs ${nodeForce.fy > 0 ? '↑' : '↓'}`}
+                            fontSize={10}
+                            fontFamily="Atkinson Hyperlegible"
+                            fill={nodeForce.fy > 0 ? "#22c55e" : "#ef4444"}
+                          />
+                        )}
+                        {nodeDeflection && (
+                          <Text
+                            x={deflectedPos.x + 15}
+                            y={deflectedPos.y + (node.support ? 0 : -15)}
+                            text={`Δ: ${Math.sqrt(nodeDeflection.dx * nodeDeflection.dx + nodeDeflection.dy * nodeDeflection.dy).toFixed(3)}″`}
+                            fontSize={10}
+                            fontFamily="Atkinson Hyperlegible"
+                            fill="#60a5fa"
+                          />
+                        )}
+                      </>
+                    )
+                  })()}
+                </>
+              )}
+            </Group>
           )}
           
           {node.support === 'fixed' && (

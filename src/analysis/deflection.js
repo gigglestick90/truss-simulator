@@ -1,5 +1,5 @@
 // Deflection calculation using virtual work method
-export function calculateDeflections(nodes, members, memberForces, material) {
+export function calculateDeflections(nodes, members, memberForces, material, nodeForces = []) {
   const deflections = new Map()
   
   // Initialize all node deflections to zero
@@ -18,7 +18,7 @@ export function calculateDeflections(nodes, members, memberForces, material) {
         members, 
         memberForces, 
         material.E,
-        memberForces
+        nodeForces
       )
       deflections.set(node.id, nodeDeflection)
     }
@@ -39,6 +39,7 @@ export function calculateDeflections(nodes, members, memberForces, material) {
   return {
     nodeDeflections: Array.from(deflections.entries()).map(([nodeId, defl]) => ({
       nodeId,
+      id: nodeId, // Include both for compatibility
       dx: defl.dx,
       dy: defl.dy
     })),
@@ -47,7 +48,7 @@ export function calculateDeflections(nodes, members, memberForces, material) {
   }
 }
 
-function calculateNodeDeflection(node, allNodes, members, memberForces, E, allMemberForces) {
+function calculateNodeDeflection(node, allNodes, members, memberForces, E, nodeForces) {
   let dx = 0
   let dy = 0
   
@@ -71,10 +72,12 @@ function calculateNodeDeflection(node, allNodes, members, memberForces, E, allMe
     // Calculate axial deformation: δ = FL/EA
     const axialDeformation = (force * L) / (E * A)
     
-    // For members in compression, consider buckling effects based on I
-    // This provides more accurate deflection for different lumber sizes
-    const slendernessRatio = L / Math.sqrt(I / A)
-    const bucklingFactor = force < 0 ? 1 + (slendernessRatio / 1000) : 1
+    // For members in compression, consider buckling effects
+    // More realistic buckling factor based on Euler buckling
+    const r = Math.sqrt(I / A) // radius of gyration
+    const slendernessRatio = L / r
+    // Euler buckling amplification for compression members
+    const bucklingFactor = force < 0 ? 1 + Math.pow(slendernessRatio / 200, 2) : 1
     
     // Get direction from this node to other node
     const otherNode = node.id === member.start ? endNode : startNode
@@ -84,23 +87,33 @@ function calculateNodeDeflection(node, allNodes, members, memberForces, E, allMe
     
     // Add contribution to node deflection
     if (length > 0) {
-      // Scale factor to get reasonable deflections
-      const scaleFactor = 0.5
-      dx += axialDeformation * bucklingFactor * (dirX / length) * scaleFactor
-      dy += axialDeformation * bucklingFactor * (dirY / length) * scaleFactor
+      // Use actual deformation without reduction factor
+      const nodeContribution = axialDeformation * bucklingFactor
+      dx += nodeContribution * (dirX / length)
+      dy += nodeContribution * (dirY / length)
     }
   })
   
-  // Add gravity effect for top chord nodes based on load intensity
-  // This simulates bending in addition to axial deformation
-  if (node.y < 300) { // Top chord nodes
-    const positionFactor = (300 - node.y) / 200 // Normalized height
-    const totalForce = connectedMembers.reduce((sum, m) => {
-      const f = Math.abs(allMemberForces.find(f => f.id === m.id)?.force || 0)
-      return sum + f
-    }, 0)
-    const loadFactor = totalForce * 0.00002 // Scale based on actual forces
-    dy += positionFactor * loadFactor
+  // Add gravity effect for loaded nodes
+  // Find if this node has external load applied
+  const nodeForce = nodeForces.find(f => f.nodeId === node.id)
+  if (nodeForce && nodeForce.fy < 0) { // Downward load
+    // Add bending deflection for loaded nodes
+    // This accounts for local member bending under load
+    const loadMagnitude = Math.abs(nodeForce.fy)
+    // Find the average I of connected members
+    const avgI = connectedMembers.reduce((sum, m) => sum + (m.momentOfInertia || 5.36), 0) / connectedMembers.length
+    // Approximate local bending deflection: PL³/(48EI) for distributed load
+    const avgLength = connectedMembers.reduce((sum, m) => {
+      const start = allNodes.find(n => n.id === m.start)
+      const end = allNodes.find(n => n.id === m.end)
+      return sum + getMemberLengthInches(start, end)
+    }, 0) / connectedMembers.length
+    
+    // More accurate bending deflection for point load on beam
+    // Using δ = PL³/(48EI) for midspan loading
+    const bendingEffect = (loadMagnitude * Math.pow(avgLength, 3)) / (48 * E * avgI)
+    dy -= bendingEffect * 0.5 // Factor accounts for load distribution and continuity
   }
   
   return { dx, dy }
@@ -109,8 +122,8 @@ function calculateNodeDeflection(node, allNodes, members, memberForces, E, allMe
 function getMemberLengthInches(startNode, endNode) {
   const dx = endNode.x - startNode.x
   const dy = endNode.y - startNode.y
-  // Assume 1 pixel = 0.1 inch for visualization purposes
-  return Math.sqrt(dx ** 2 + dy ** 2) * 0.1
+  // Convert pixels to inches: 50 pixels = 1 foot = 12 inches
+  return Math.sqrt(dx ** 2 + dy ** 2) * 12 / 50
 }
 
 // Calculate deflection limits per IBC

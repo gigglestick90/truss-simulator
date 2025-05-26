@@ -40,18 +40,18 @@ export function analyzeTruss(nodes, members, loads, trussSpan) {
   if (leftSupport) nodeForces.get(leftSupport.id).fy = reactionForce
   if (rightSupport) nodeForces.get(rightSupport.id).fy = reactionForce
   
-  // Find the topmost Y coordinate (smallest Y value since Y increases downward)
+  // Find the topmost Y coordinate (HIGHEST Y value since Y increases upward)
   const nonSupportNodes = nodes.filter(n => !n.support)
   
   if (nonSupportNodes.length === 0) {
     throw new Error("No non-support nodes found to apply loads")
   }
   
-  const minY = Math.min(...nonSupportNodes.map(n => n.y))
+  const maxY = Math.max(...nonSupportNodes.map(n => n.y))
   
   // Apply distributed load to top chord nodes (nodes at or near the top)
   // Consider nodes within 50 pixels (1 foot) of the top as part of the top chord
-  const topNodes = nonSupportNodes.filter(n => n.y <= minY + 50)
+  const topNodes = nonSupportNodes.filter(n => n.y >= maxY - 50)
   
   console.log('Load application debug:')
   console.log('- Total load:', uniformLoad * spanFeet, 'lbs')

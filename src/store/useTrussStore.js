@@ -3,6 +3,7 @@ import { analyzeTruss, calculateStress } from '../analysis/trussAnalysis'
 import { calculateDeflections, checkDeflectionLimits } from '../analysis/deflection'
 import { generateUUID } from '../utils/uuid'
 import { defaultLumberSize } from '../data/lumberSizes'
+import { WOOD_SPECIES } from '../data/materials'
 
 const useTrussStore = create((set, get) => ({
   // Truss geometry - start with empty structure
@@ -16,13 +17,10 @@ const useTrussStore = create((set, get) => ({
     snow: 0,   // psf
   },
   
-  // Material properties
+  // Material properties - default to SPF
   material: {
     name: 'SPF (Spruce-Pine-Fir) #2',
-    E: 1_200_000,  // psi
-    Fb: 775,       // psi
-    Fc: 1150,      // psi
-    density: 26    // pcf
+    ...WOOD_SPECIES['SPF (Spruce-Pine-Fir) #2']
   },
   
   // Lumber size
@@ -31,7 +29,7 @@ const useTrussStore = create((set, get) => ({
   // Analysis results
   analysisResults: {
     memberForces: [],
-    nodeDisplacements: [],
+    nodeDeflections: [],
     maxStress: 0,
     maxDeflection: 0,
     status: 'NOT_ANALYZED',
@@ -204,7 +202,8 @@ const useTrussStore = create((set, get) => ({
         state.nodes,
         updatedMembers,
         results.memberForces,
-        state.material
+        state.material,
+        results.nodeForces
       )
       
       // Check deflection limits
@@ -223,7 +222,7 @@ const useTrussStore = create((set, get) => ({
         members: updatedMembers,
         analysisResults: {
           memberForces: results.memberForces,
-          nodeDisplacements: deflectionResults.nodeDeflections,
+          nodeDeflections: deflectionResults.nodeDeflections,
           maxStress,
           maxDeflection: deflectionResults.maxDeflection,
           deflectionRatio: deflectionCheck.ratio,
@@ -253,7 +252,7 @@ const useTrussStore = create((set, get) => ({
     members: [],
     analysisResults: {
       memberForces: [],
-      nodeDisplacements: [],
+      nodeDeflections: [],
       maxStress: 0,
       maxDeflection: 0,
       status: 'NOT_ANALYZED',
